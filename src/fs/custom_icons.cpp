@@ -97,16 +97,14 @@ namespace {
     return icon ? iconValue(icon.get()) : std::nullopt;
   }
 
-  luciole::FileIconSource contentTypeIcon(const char* contentType, bool folder) {
+  luciole::FileIconSource fileTypeIcon(const char* contentType) {
     luciole::FileIconSource result;
     if (contentType != nullptr) {
       const luciole::GioPtr<GIcon> icon(g_content_type_get_icon(contentType));
       result = luciole::readIconSource(icon.get());
     }
-    result.names.emplace_back(folder ? "folder" : "text-x-generic");
-    if (!folder) {
-      result.names.emplace_back("application-octet-stream");
-    }
+    result.names.emplace_back("text-x-generic");
+    result.names.emplace_back("application-octet-stream");
     return result;
   }
 } // namespace
@@ -137,12 +135,12 @@ std::optional<luciole::FileIconSource> luciole::linkTargetIcon(const std::string
     if (auto icon = directoryFileIcon(path)) {
       return icon;
     }
-    return contentTypeIcon("inode/directory", true);
+    return *localFolderIcon();
   }
   // Following the link, GIO types the target by its own name and, when that is uncertain, its contents.
   const GioPtr<GFile> file(g_file_new_for_path(path.c_str()));
   const GioPtr<GFileInfo> info(
       g_file_query_info(file.get(), G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE, G_FILE_QUERY_INFO_NONE, nullptr, nullptr)
   );
-  return contentTypeIcon(info ? infoString(info.get(), G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE) : nullptr, false);
+  return fileTypeIcon(info ? infoString(info.get(), G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE) : nullptr);
 }

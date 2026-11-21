@@ -109,6 +109,19 @@ namespace {
     return false;
   }
 
+  // The icon GIO's local backend gives the item at path, without following a link.
+  luciole::FileIconSource gioIcon(const luciole::Location& location) {
+    const auto file = luciole::gioFile(location);
+    const luciole::GioPtr<GFileInfo> info(g_file_query_info(
+        file.get(),
+        G_FILE_ATTRIBUTE_STANDARD_NAME "," G_FILE_ATTRIBUTE_STANDARD_TYPE "," G_FILE_ATTRIBUTE_STANDARD_ICON
+                                       "," G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE,
+        G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, nullptr, nullptr
+    ));
+    TEST_CHECK(info);
+    return luciole::readFileIcon(info.get(), location);
+  }
+
   // Ready, with sniffed content types published.
   void
   ready(Pump& pump, const DirectorySession& session, std::source_location caller = std::source_location::current()) {
@@ -175,15 +188,7 @@ namespace {
           continue;
         }
         const auto location = entry.location();
-        const auto file = luciole::gioFile(location);
-        const luciole::GioPtr<GFileInfo> info(g_file_query_info(
-            file.get(),
-            G_FILE_ATTRIBUTE_STANDARD_NAME "," G_FILE_ATTRIBUTE_STANDARD_TYPE "," G_FILE_ATTRIBUTE_STANDARD_ICON
-                                           "," G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE,
-            G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, nullptr, nullptr
-        ));
-        TEST_CHECK(info);
-        const auto expected = luciole::readFileIcon(info.get(), location);
+        const auto expected = gioIcon(location);
         TEST_CHECK(entry.icon && *entry.icon == expected);
         special += expected.names.front().starts_with("user-") || expected.names.front().starts_with("folder-");
         TEST_CHECK(Location::fromUri(location.uri()) == location);
@@ -195,6 +200,10 @@ namespace {
     TEST_CHECK(entry(session, "notes.txt").icon == entry(session, "more.txt").icon);
     TEST_CHECK(entry(session, "notes.txt").icon != entry(session, "ordinary").icon);
     TEST_CHECK(entry(session, "launcher.desktop").icon->desktopFile == (home / "launcher.desktop").native());
+    session.open(Location::fromPath(profile.native()));
+    ready(pump, session);
+    pump.until([&] { return linksToDirectory(session, "docs-link"); });
+    TEST_CHECK(*entry(session, "docs-link").icon == gioIcon(Location::fromPath((home / "ordinary").native())));
   }
 
   // The icon's first themed name, or its image path.
@@ -819,6 +828,11 @@ namespace {
         pump.until([&] { return linksToDirectory(session, "folder-link"); });
         TEST_CHECK(!entry(session, "link").linksToDirectory && !entry(session, "broken").linksToDirectory);
         TEST_CHECK(!entry(session, "locked").linksToDirectory);
+        // A link to a folder shows the plain folder icon, a link to a file its target's icon; a broken link keeps
+        // the link icon.
+        pump.until([&] { return *entry(session, "link").icon == *entry(session, "regular.txt").icon; });
+        TEST_CHECK(*entry(session, "folder-link").icon == *entry(session, "locked").icon);
+        TEST_CHECK(*entry(session, "broken").icon == gioIcon(entry(session, "broken").location()));
       }
     }
     // Root can retain write access after chmod, including in the CI container.
@@ -909,6 +923,7 @@ namespace {
     const auto rich = session.snapshot().entries;
     // GIO details never report a link's target, so they keep the catalogue's.
     TEST_CHECK(rich.known(folderLinkIndex)->linksToDirectory);
+    TEST_CHECK(*rich.known(folderLinkIndex)->icon == gioIcon(fixture.location().child("folder")));
     TEST_CHECK(rich.sameCatalogue(initial) && pending.metadataPending && !initial.known(pictureIndex));
     const auto& picture = *rich.known(pictureIndex);
     TEST_CHECK(!picture.metadataPending && !picture.metadataFailed && picture.contentType == "image/png");
@@ -1089,11 +1104,13 @@ namespace {
     TEST_CHECK(session.snapshot().status == DirectoryStatus::Loading);
     ready(pump, session);
     TEST_CHECK(linksToDirectory(session, "folder-link"));
+    TEST_CHECK(*entry(session, "folder-link").icon == *entry(session, "folder").icon);
     fs::remove(fixture.path / "folder-link");
     fs::create_symlink("file", fixture.path / "folder-link");
     session.refresh();
     ready(pump, session);
     pump.until([&] { return !linksToDirectory(session, "folder-link"); });
+    TEST_CHECK(*entry(session, "folder-link").icon == gioIcon(fixture.location().child("folder-link")));
   }
 
   void testNetworkFilesystem() {

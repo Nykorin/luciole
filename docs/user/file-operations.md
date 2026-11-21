@@ -18,7 +18,7 @@ Deferred extraction cannot target a provider URI or pin an archive entry in Plac
 
 When names collide, the conflict dialog offers Replace, Skip and a numbered new name. Folder copies can merge into existing folders. Apply-to-all choices are scoped to the current job. Failed-item retries are explicit. Cancellation stops remaining work; it does not undo already completed changes. Supported native copies, links and moves, remote copies and SFTP link transfers have [Undo/Redo](#undo-and-redo); interrupted-job recovery remains pending.
 
-The background menu provides New Folder (Ctrl+Shift+N) and New Document. New Document offers an empty file (Ctrl+Alt+N) and files from the configured XDG Templates folder. Create Link on a single native item creates a symbolic or hard link where supported.
+The background menu provides New Folder (Ctrl+Shift+N) and New Document. New Document offers an empty file (Ctrl+Alt+N) and files from the configured XDG Templates folder. Create Link on a single native item creates a symbolic or hard link where supported. Show Link Target on a single symbolic link opens the folder that holds the link's target and selects it. It follows one link: when the target is another link, use it again to go further. A link whose target no longer exists reports that instead.
 
 F2 renames one item. Multiple selected native items from the same containing folder open batch rename. Preview the proposed names before applying them.
 
@@ -123,6 +123,8 @@ Opening and extracting archives validate members and enforce resource limits. An
 ## Properties and permissions
 
 Properties (Alt+Return) shows available file/media facts. Hold Alt while clicking an item to open its Properties: use a single click with single-click opening enabled, or a double-click with double-click opening enabled. This works in List, Grid and Columns; Alt-drag still offers the transfer action menu. Images can include pixel dimensions, videos can include codecs and duration, and PDFs can include page information. Installed providers determine which facts are available.
+
+For a native symbolic link, Properties and the side preview show Link Target as stored in the link and Resolved Target as the final absolute path. Relative targets and link chains are resolved through the filesystem. A missing, inaccessible or looping target shows Target Status instead. The other file facts and permission controls still describe the link itself; inspecting a folder link does not count its target's contents. Opening a valid link follows its target, while an unavailable target reports an error and leaves the current folder open.
 
 For folders, Properties starts a separate cancellable recursive count/size calculation. Ordinary selection and the side preview do not traverse folders to calculate totals. Recursive totals are currently unavailable for non-native locations and Trash.
 
