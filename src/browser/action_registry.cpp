@@ -454,7 +454,7 @@ namespace {
        .scope = S::Targets,
        .rule = originalLocation},
       {.action = A::ShowLinkTarget,
-       .label = "Show link target",
+       .label = "Show Link Target",
        .shortcut = "",
        .scope = S::Targets,
        .rule = linkTarget},
