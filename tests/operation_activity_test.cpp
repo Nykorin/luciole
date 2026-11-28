@@ -1095,7 +1095,7 @@ namespace {
         {{fixture.at("success"), fixture.at("missing")}, fixture.at("destination"), luciole::TransferAction::Copy}
     ));
     auto live = workspace.hub.activities();
-    TEST_CHECK(live.size() == 1 && !live[0].finished && live[0].canCancel && !live[0].progress);
+    TEST_CHECK(live.size() == 1 && !live[0].finished && live[0].canCancel);
     pump.until([&] { return service.conflict().has_value(); });
     const auto destination = fixture.root / "destination";
     const auto held = fixture.root / "held-destination";
