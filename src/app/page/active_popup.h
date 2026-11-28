@@ -19,7 +19,6 @@ public:
     CreateItem,
     Link,
     BatchRename,
-    FileRename,
     PlaceRename,
     PlaceIcon,
     FolderIcon,

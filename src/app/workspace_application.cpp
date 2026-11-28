@@ -683,6 +683,9 @@ void WorkspaceApplication::keyboard(const KeyboardEvent& event) {
     const bool focusPrevious =
         luciole::keybindMatches(luciole::KeybindCommand::FocusPrevious, event.sym, event.modifiers);
     if (!page.overlay() && (focusNext || focusPrevious)) {
+      if (page.inlineRenameTab(focusPrevious)) {
+        return;
+      }
       (void)host.dispatcher.cycleTabFocus(focusPrevious);
       host.surface.requestRedraw();
       return;
@@ -831,6 +834,7 @@ void WorkspaceApplication::pointer(const PointerEvent& event) {
     const bool forward = event.button == BTN_EXTRA || event.button == BTN_FORWARD;
     if (back || forward) {
       if (event.pressed && !host->pressedTab && !active.overlay()) {
+        active.commitInlineRename();
         auto target = window.active;
         for (auto tab : host->mounted) {
           if (m_pages.at(tab)->contains(x, y)) {
@@ -856,6 +860,9 @@ void WorkspaceApplication::pointer(const PointerEvent& event) {
     }
   }
   if (stripPointer(*host, event, x, y)) {
+    if (event.type == PointerEvent::Type::Button && event.pressed) {
+      active.commitInlineRename();
+    }
     return;
   }
   cancelTabHoverScroll(*host);
@@ -865,6 +872,7 @@ void WorkspaceApplication::pointer(const PointerEvent& event) {
       && event.type == PointerEvent::Type::Button
       && event.pressed
       && event.button == BTN_LEFT) {
+    active.commitInlineRename();
     host->previewDragWidth = active.previewWidth();
     return;
   }
@@ -874,6 +882,7 @@ void WorkspaceApplication::pointer(const PointerEvent& event) {
       && event.type == PointerEvent::Type::Button
       && event.pressed
       && event.button == BTN_LEFT) {
+    active.commitInlineRename();
     host->resizing = true;
     host->resizeStart = window.fraction;
     return;
@@ -890,12 +899,16 @@ void WorkspaceApplication::pointer(const PointerEvent& event) {
     }
   }
   // Pane content goes to the page under the pointer; the chrome around the panes belongs to the active page.
-  auto target = m_model.windows().at(host->id).active;
+  const auto currentActive = m_model.windows().at(host->id).active;
+  auto target = currentActive;
   for (auto tab : host->mounted) {
     if (m_pages.at(tab)->contains(x, y)) {
       target = tab;
       break;
     }
+  }
+  if (event.type == PointerEvent::Type::Button && event.pressed && target != currentActive) {
+    m_pages.at(currentActive)->commitInlineRename();
   }
   host->pointerPage = target;
   m_pages.at(target)->pointer(event);

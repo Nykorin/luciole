@@ -233,6 +233,11 @@ const luciole::DirectoryEntry* luciole::DirectoryModel::entry(EntryId id) const 
   return &m_snapshot.entries[*source];
 }
 
+const luciole::DirectoryEntry* luciole::DirectoryModel::knownEntry(EntryId id) const {
+  const auto source = sourceOf(id);
+  return source ? m_snapshot.entries.known(*source) : nullptr;
+}
+
 void luciole::DirectoryModel::setMetadataRequestedCallback(
     std::function<void(std::size_t, EntryId, std::uint8_t)> callback
 ) {

@@ -1228,6 +1228,61 @@ namespace {
     luciole::setActiveKeybinds(luciole::KeybindConfig{});
   }
 
+  void testInlineRenameHelpers() {
+    const std::vector<luciole::EntryId> rows{10, 20, 30, 40, 50, 60};
+    const auto all = [](luciole::EntryId) { return true; };
+    TEST_CHECK(luciole::adjacentRenameTarget(rows, 0, -1, 1, all) == std::nullopt);
+    TEST_CHECK(luciole::adjacentRenameTarget(rows, 0, 1, 1, all) == 20);
+    TEST_CHECK(luciole::adjacentRenameTarget(rows, 5, 1, 1, all) == std::nullopt);
+    TEST_CHECK(luciole::adjacentRenameTarget(rows, 5, -1, 1, all) == 50);
+    // Grid stride steps by full rows and stops at grid boundaries.
+    TEST_CHECK(luciole::adjacentRenameTarget(rows, 1, 1, 3, all) == 50);
+    TEST_CHECK(luciole::adjacentRenameTarget(rows, 4, -1, 3, all) == 20);
+    TEST_CHECK(luciole::adjacentRenameTarget(rows, 4, 1, 3, all) == std::nullopt);
+    TEST_CHECK(luciole::adjacentRenameTarget(rows, 1, -1, 3, all) == std::nullopt);
+    // Unrenamable neighbors are skipped in the travel direction.
+    const auto skip20And40 = [](luciole::EntryId id) { return id != 20 && id != 40; };
+    TEST_CHECK(luciole::adjacentRenameTarget(rows, 0, 1, 1, skip20And40) == 30);
+    TEST_CHECK(luciole::adjacentRenameTarget(rows, 4, -1, 1, skip20And40) == 30);
+    TEST_CHECK(luciole::adjacentRenameTarget(rows, 0, 1, 3, skip20And40) == std::nullopt);
+    TEST_CHECK(luciole::adjacentRenameTarget(rows, 99, 1, 1, all) == std::nullopt);
+    TEST_CHECK(luciole::adjacentRenameTarget(rows, 0, 0, 1, all) == std::nullopt);
+
+    luciole::FileIconCache icons;
+    luciole::ThumbnailService thumbnails;
+    luciole::BrowserController browser({}, false);
+    browser.model().applySnapshot(snapshot());
+    luciole::FileViewAdapter adapter(
+        browser, icons, thumbnails, luciole::ViewMode::List, [] { return 0U; }, [] { return true; }
+    );
+    const auto& visible = browser.model().rows();
+    TEST_CHECK(!visible.empty());
+    const auto firstId = visible.front();
+    TEST_CHECK(browser.model().select(firstId));
+    auto decoration = adapter.createDecoration();
+    const VirtualGridDecorationLayout layout{
+        .firstIndex = 0,
+        .itemCount = visible.size(),
+        .columns = 1,
+        .cellWidth = 300.0F,
+        .cellHeight = 36.0F,
+        .columnGap = 0.0F,
+        .rowGap = 2.0F,
+        .rtl = false,
+    };
+    adapter.bindDecoration(*decoration, layout);
+    TEST_CHECK(decoration->visible());
+    TEST_CHECK(!adapter.itemTooltip(0).empty());
+    adapter.setRenamingEntry(firstId);
+    adapter.bindDecoration(*decoration, layout);
+    TEST_CHECK(!decoration->visible());
+    TEST_CHECK(adapter.itemTooltip(0).empty());
+    adapter.setRenamingEntry(std::nullopt);
+    adapter.bindDecoration(*decoration, layout);
+    TEST_CHECK(decoration->visible());
+    TEST_CHECK(!adapter.itemTooltip(0).empty());
+  }
+
 } // namespace
 int main() {
   try {
@@ -1256,6 +1311,7 @@ int main() {
     testBulkSelection();
     testChooserGate();
     testTypeahead();
+    testInlineRenameHelpers();
     std::println("browser action checks passed");
   } catch (const std::exception& error) {
     std::println(stderr, "browser action test: {}", error.what());
